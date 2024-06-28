@@ -1,6 +1,7 @@
 # to run $ streamlit run main.py
 import folium
 import numpy as np
+import matplotlib.cm as cmx
 import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
@@ -59,10 +60,12 @@ dataset = st.container()
 data_clean = st.container()
 st_map = st.container()  # Container for the st.map()
 plots = st.container()
-map = st.container()  # Container for the Folium map for Prices
-st_map_mta = st.container()  # Container for the Folium map for MTA stations
+map = st.container()  # the Folium map for Prices v1.0
+st_map_mta = st.container()  # the Folium .map() for MTA stations
+map_v2 = st.container()  # the Folium map for Prices v2.0
+normalization = st.container()  # The matplotlib coolwarm
 
-# Load data Fn
+# Load data
 @st.cache_data
 def get_csv_data(filename):
     try:
@@ -93,22 +96,17 @@ with dataset:
     For a header image thanks to: unsplash.com'''
     st.markdown(long_text)
 
-    # Display Prices dataset
     csv_filepath = './data/zillow.csv'
     rent_df = get_csv_data(csv_filepath)
 
-    # Display MTA dataset
     csv_filepath = './data/grouped_df.csv'
     mta_df = get_csv_data(csv_filepath)
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        st.markdown("**Zillow 2020 dataset** ")
-    with col2:
-        st.markdown("**MTA stations** (Cleaned)")
-    col1, col2 = st.columns([3, 1])
-    with col1:
+
+    # Display Prices dataset
+    with st.expander("Zillow 2020 dataset 5 first rows"):
         st.dataframe(rent_df.head())
-    with col2:
+    # Display MTA dataset
+    with st.expander("MTA stations data (Cleaned) 5 first rows"):
         st.dataframe(mta_df.head())  # full width, for narrower view:  st.dataframe(mta_df.head())
 
 with data_clean:
@@ -162,14 +160,14 @@ with data_clean:
         return new_df
 
 
-    st.subheader("Let's **drop some** columns and rows:")
-    st.write(
-        ">> specifically: `df.drop()` anything that is not NY or NJ in 'state' col and that is not FOR_RENT in 'homeStatus' col")
+    st.subheader("Let's **drop some** columns and rows")
+    st.markdown(
+        "Specifically, `df.drop()` anything that is not NY or NJ in 'state' col and that is not FOR_RENT in 'homeStatus' column:")
     st.code("""new_df = new_df.drop(new_df[~new_df['state'].isin(['NY', 'NJ'])].index), 
         \nnew_df = new_df.drop(new_df[~new_df['homeStatus'].isin(['FOR_RENT'])].index)""")
-    st.markdown("**How the dataset looks now**")
     selected_rent_df = select_cols_rows(nona_unique_home_st)
-    st.dataframe(selected_rent_df.head())
+    with st.expander("Show how the dataset looks now"):
+        st.dataframe(selected_rent_df.head())
 
 
     # yearBuilt plot
@@ -195,9 +193,6 @@ with data_clean:
 
     st.write("""If you're as curious as I'm about the 'yearBuilt' of NYC estates, 
              I asked how many unique values are in 'yearBuilt' column, next I put the unique values into bins of 12 and plot the bins""")
-    # or a  Button. Works too
-    # btn_yearBuilt = st.button("Generate Plot on yearBuilt")
-    # if btn_yearBuilt:
     with st.expander("Generate Plot on 'yearBuilt'"):
         fig = plot_year_built(selected_rent_df)
         st.pyplot(fig)
@@ -206,8 +201,7 @@ with data_clean:
     st.write("""I created a function that takes a price string and removes unwanted characters at front `.startswith('$')`,
             converts it to a float `float(price_string.replace(',', ''))`, and adjusts the value based on the ending if
             it detects a `+` sign in $1000+ `.endswith('+/mo')` to add 0.99 and remove the rest:""")
-    st.code("if price_string.startswith('$'): \n \tprice_string = price_string[1:] \n ")
-
+    st.code("if price_string.startswith('$'): \n \tprice_string = price_string[1:] \n")
 
     @st.cache_data
     def clean_price_col(df):
@@ -232,9 +226,18 @@ with data_clean:
         return df
 
 
-    st.markdown("**Prices fixed in a new column 'price_fixed'**")
     prices_cleaned = clean_price_col(selected_rent_df)
-    st.dataframe(prices_cleaned.head())
+    with st.expander("Prices fixed in a new column 'price_fixed'"):
+        st.dataframe(prices_cleaned.head())
+
+    st.markdown("Here is how to find all the prices that end with .99 after decimal point:")
+    st.code("price_99 = df[df['price_fixed'].apply(lambda x: str(x).endswith('.99'))]")
+    st.write("Let's see how many of the listings used '+/mo' to evaluate if I need to deal with them. I counted insugnificant 7. Well, I'll leave it in - some interesting results to look for on visualiations later.")
+    with st.expander("Show the dataset of 7"):
+        @st.cache_data
+        def endswith_99(df):
+            return df[df['price_fixed'].apply(lambda x: str(x).endswith('.99'))]
+        st.dataframe(endswith_99(prices_cleaned))
 
     # OUTLIERS
     # @st.cache_data
@@ -296,7 +299,7 @@ with plots:
         q3 = df['price_fixed'].quantile(0.75)
         iqr = q3 - q1
         lower_bound = q1 - 1.5 * iqr
-        upper_bound = q3 + 1.5 * iqr  # decrese 1.5 based on domain knowlege?
+        upper_bound = q3 + 1.5 * iqr  # decrease 1.5 based on domain knowledge?
 
         # Identify outliers
         outliers = df[~((df['price_fixed'] >= lower_bound) & (df['price_fixed'] <= upper_bound))]
@@ -362,7 +365,8 @@ with plots:
     st.subheader("Analyze Monthly Rent")
     long_text = """
     This is unreadable, I know, but there are a lot of rows in this dataset. I display it just for a visual sense of data distribution. let's sort and check on the 
-    first 50 rows that have any significance in their count. I want to point out the values that rounded are the ones which accumulate greater counts vs a rundom numer on a numberline, which makes sence for us as humans when intersting in decimal system to talk sbout prices. We're dealing with humans in this industry, not just science or finances. It'll be handy to select a normalization method later on. I'll show you wahat I mean."""
+    first 50 rows that have any significance in their count. I want to point out the values that rounded are the ones which accumulate greater counts vs a rundom numer on a numberline, which makes sence for us as humans when talking about prices in base ten system. it's eathier talking about \$2,000/mo rent rather then \$1,987.33/mo.
+    *Fun fact, in the past not knowing about this I converted and changed the prices of an entire stock of an electronics retail store due to the curency-tied items change in value overnight. It was in minutes that I've found out all about how angry customers were with a price like 341,97 in local curency. Learn from my mistakes so you don't have to!* When working with humans is not the same as hard science or finances. Later on it'll come up here again when I'll select a normalization method."""
     st.markdown(long_text)
     with st.expander("See frequency of Monthly Rent on all dataset"):
         with st.spinner("Retrieved dataset. Plotting..."):
@@ -373,7 +377,7 @@ with plots:
             st.pyplot(bar_plot_sorted(prices_cleaned))
 
     st.subheader("Why 1.5 times IQR?")
-    st.write("The use of 1.5 times the interquartile range (IQR) to define the whiskers in a box plot is a common convention in statistical analysis. This method, popularized by John Tukey, helps in identifying potential outliers in the data.")
+    st.write("The use of 1.5 times the interquartile range (IQR) to define the whiskers in a box plot is a common convention in statistical analysis. This method, popularized by John Tukey, helps in identifying potential outliers in the data. The choice of 1.5 times the IQR as a threshold for outliers is somewhat arbitrary but has been found to work well in practice for many datasets. It balances between being too lenient and too strict in identifying outliers.")
     st.markdown("**How to Identify Outliers:**")
     st.code("""
         iqr = q3 - q1
@@ -398,22 +402,17 @@ with plots:
         with st.spinner("Retrieved the Dataset. Plotting..."):
             st.pyplot(plot_without_outliers_with_bedrooms(prices_cleaned))
 
-with st_map_mta:
-    st.header("NYC MTA Map visualization")
-    st.subheader("Time to add the MTA system to the map of NYC!")
-    st.map(mta_df, zoom=10, use_container_width=True)
-
 with map:
     @st.cache_data
-    def generate_geo_map(df):
+    def generate_geo_map_v1(df):
         """
-            Plot a geographical map in folium of NJ and NY based on the lat and long circles with their price_fixed,
-            color by price_fixed. Due to the default behavior of Streamlit's caching mechanism. When you interact with other
-            widgets, Streamlit re-renders the entire app, potentially resetting the state of components that are not cached explicitly.
-            To address this and ensure that the map remains cached and available even after interacting
-            with other elements, you can modify your approach by using st.cache decorator for your map generation function
-            and ensuring that the map is only generated once and remains available throughout the session.
-            """
+        Plot a geographical map in folium of NJ and NY based on the lat and long circles with their price_fixed,
+        color by price_fixed. Due to the default behavior of Streamlit's caching mechanism. When you interact with other
+        widgets, Streamlit re-renders the entire app, potentially resetting the state of components that are not cached explicitly.
+        To address this and ensure that the map remains cached and available even after interacting
+        with other elements, you can modify your approach by using st.cache decorator for your map generation function
+        and ensuring that the map is only generated once and remains available throughout the session.
+        """
         # Create a map object with initial location and zoom level 12 for NYC only
         nyc_map = folium.Map(location=[40.7128, -74.0060], zoom_start=12)
 
@@ -432,26 +431,162 @@ with map:
 
     # map component of Streamlit
     # nyc_map = folium.Map(location=[40.7128, -74.0060], zoom_start=12) # works quickly, but...
-    # nyc_map = generate_geo_map(prices_cleaned) # (takes too long for one map)
+    # nyc_map = generate_geo_map(prices_cleaned) # ..takes too long for one map
     # st_folium(nyc_map, width=700)
 
     # Initialize session state for the map
     if 'nyc_map' not in st.session_state:
-        st.session_state['nyc_map'] = generate_geo_map(prices_cleaned)
+        st.session_state['nyc_map'] = generate_geo_map_v1(prices_cleaned)
 
     st.header("Map v1.0: Scaled markers of montly rent")
     # Function to handle map generation
     with st.spinner('Creating a Map according to your request...'):
         def handle_map_generation():
-            st.session_state['nyc_map'] = generate_geo_map(prices_cleaned)
+            st.session_state['nyc_map'] = generate_geo_map_v1(prices_cleaned)
 
         handle_map_generation()
-        st.markdown("I'm pretty sure there are expensive places for rent of *$160,000.00/mo* and *$140,000.00+/mo* in NYC. However, \
-        I'll remove a couple of extreme values on the long end just do no skew results and due to a concern if they are non repeatin single two cases makes mesuspesious of anr error in data \
-        true numbers. I'll scale the size of a mark to a Rent value and plot with OpenStreet data and Folium this time. \
-        Heads up, it does seam to take *some extra time*.")
+        st.markdown("""I'm pretty sure there are expensive places for rent of \$160,000.00/mo and \$140,000.00+/mo* in NYC. However, I may leave out those extreme values on the long end just do no skew results and non-repeating single two cases makes me suspesious of an error in the data. Next up: I scale the size of a mark to a rent value and plot with `OpenStreetMap` and `Folium`. Heads up, it does seam to take ***some extra time***.""")
         st.success('Map v1.0 is ready! Displaying...')
 
     # Displaying the cached map if it exists
     if st.session_state['nyc_map']:
         folium_static(st.session_state['nyc_map'])
+
+
+with st_map_mta:
+    st.header("NYC MTA Map visualization")
+    st.subheader("Time to add the MTA system to the map of NYC!")
+    # Streamlit basic map of MTA stops
+    st.map(mta_df, zoom=10, use_container_width=True)
+
+with map_v2:
+    @st.cache_data
+    def generate_geo_map_v2(df):
+        # Todo: show this map & spell it out "Why this doesn't work due to long tail range"
+        # Create a map object with initial location and zoom level
+        nyc_map2 = folium.Map(location=[40.7549, -73.9840], zoom_start=11)
+
+        # Create a colormap, usage of 4 color due to 4Q
+        colormap = folium.LinearColormap(colors=['blue', 'lightblue', 'green', 'orange'],
+                                         vmin=df['price_fixed'].min(), vmax=df['price_fixed'].max())
+
+        # Add circles to the map for each row in df
+        for index, row in df.iterrows():
+            # Get the color for the current price
+            color = colormap(row['price_fixed'])
+            circle = folium.Circle(location=[row['latitude'], row['longitude']],
+                                   radius=row['price_fixed'] * 0.002,
+                                   color=color,
+                                   fill=True,
+                                   fill_color=color)
+            folium.Popup(f"Price: ${row['price_fixed']}", parse_html=True).add_to(circle)
+            nyc_map2.add_child(circle)
+
+        # Add red circles to the map for each row in df_mta_1
+        for index, row in mta_df.iterrows():
+            circle = folium.Circle(location=[row['lat'], row['lon']], radius=5, color='red')
+            nyc_map2.add_child(circle)
+
+        # Add the colormap to the map
+        colormap.caption = 'Monthly Rent, $'
+        colormap.add_to(nyc_map2)
+        return nyc_map2
+
+
+    st.markdown("""Best thing to do next is to combine both: MTA stations and colorcode the units' locations based on 
+    the range of the column 'price_fixed'""")
+    st.header("Map v2.0: Scaled and color-coded markers of monthly rent with MTA stations")
+    nyc_map2 = generate_geo_map_v2(prices_cleaned)
+    with st.spinner(st.success("The mat v2.0 is ready. Displaying...")):
+        time.sleep(3)
+    folium_static(nyc_map2)
+    st.markdown("""
+    \tYou see how everything fell into almost uniform lowest color of a range on the plot? Let's talk about **data normalization**. Look at median calculated above - the mojority of the dataset is around those values, that makes the outlies of the hiest prices skewing the graphics. it's only them are yellow and green (let's see if you can spot them! Of caurse - **Millionaires' Row**), and pushes everything else is on a blue - lower price range - side of a colormap-numberline.
+    The way to solve it is **using normalization or scaling**. It involves adjusting the values in the dataset to fit within a specific range, making it easier to compare and visualize the data, especially when there are outliers or a large range of values. This process is essential when dealing with datasets that have varying scales, such as prices ranging from a few hundred dollars to tens of thousands of dollars. 
+    """)
+
+with normalization:
+    @st.cache_data
+    def plot_normalized_prices_humans(df):
+        # Calculate quantiles for the 'price_fixed' column
+        quantiles, bins = pd.qcut(df['price_fixed'], q=4, retbins=True, labels=False, duplicates='drop')
+
+        # Add the quantiles as a new column in the DataFrame
+        df['quantile'] = quantiles
+
+        # Create a colormap
+        cmap = cmx.coolwarm
+
+        # Create the plot
+        fig, ax = plt.subplots(figsize=(10, 10))
+
+        # Plot the data points
+        scatter = ax.scatter(df['longitude'], df['latitude'],
+                             c=df['quantile'], cmap=cmap,
+                             s=df['price_fixed'] * 0.002)
+
+        # Add a colorbar
+        cbar = plt.colorbar(scatter, ax=ax, orientation='vertical')
+
+        # Create custom labels for the colorbar
+        quantile_labels = [f'Quantile {i}: ${bins[i]:,.0f} - ${bins[i + 1]:,.0f}' for i in range(len(bins) - 1)]
+        cbar.set_ticks([0, 1, 2, 3])
+        cbar.set_ticklabels(quantile_labels)
+        cbar.set_label('Price Ranges, $')
+
+        # Add labels and title
+        ax.set_xlabel('Longitude')
+        ax.set_ylabel('Latitude')
+        ax.set_title('Geo map of NYC with price normalized')
+
+        return fig
+
+    @st.cache_data
+    def plot_normalized_prices_math(df):
+        """
+        Filters out and shows all df['quantile'] the Q4 2800 - 100000
+        """
+        # Normalize the price_fixed column using min-max scaling
+        df['price_normalized'] = (df['price_fixed'] - df['price_fixed'].min()) / (
+                    df['price_fixed'].max() - df['price_fixed'].min())
+
+        # Calculate quantiles for the normalized 'price_fixed' column
+        quantiles, bins = pd.qcut(df['price_normalized'], q=4, retbins=True, labels=False, duplicates='drop')
+
+        # Add the quantiles as a new column in the DataFrame
+        df['quantile'] = quantiles
+
+        # Create a colormap
+        cmap = cmx.coolwarm  # viridis # PiYG
+
+        # Create the plot
+        fig, ax = plt.subplots(figsize=(10, 10))
+
+        # Plot the data points
+        scatter = ax.scatter(df['longitude'], df['latitude'],
+                             c=df['quantile'], cmap=cmap,
+                             s=df['price_fixed'] * 0.002)
+
+        # Add a colorbar
+        cbar = plt.colorbar(scatter, ax=ax, orientation='vertical')
+
+        # Create custom labels for the colorbar
+        price_bins = pd.qcut(df['price_fixed'], q=4, labels=False, duplicates='drop').value_counts().sort_index().index
+        quantile_labels = [
+            f'Quantile {i + 1}: ${int(bins[i] * df["price_fixed"].max()):,} - ${int(bins[i + 1] * df["price_fixed"].max()):,}'
+            for i in range(len(bins) - 1)]
+        cbar.set_ticks([0, 1, 2, 3])
+        cbar.set_ticklabels(quantile_labels)
+        cbar.set_label('Price Ranges')
+
+        # Add labels and title
+        ax.set_xlabel('Longitude')
+        ax.set_ylabel('Latitude')
+        ax.set_title('Geo Map of NYC with Price Normalized')
+
+        return fig
+
+    st.header("Using normalization or scaling")
+    st.pyplot(plot_normalized_prices_humans(prices_cleaned))
+    st.markdown("Yes, color-scheme is very important. The gradient is not enough, some gradients can and will lead to missinterpritation of the data. The `viridis` that is today considered one of the most comprehensive do not work best for this particualar set up. The highlighter yellow is blending with my white backdrop reducing of contrast and abstracting the fact that Downtown is the most expensive in Rent. But I only could notice it when I put them both on a loop. Ask me to post a GIF in here. The `rainbow` nowadays not recommended due the middle of the spectrum visually being higher in intencity of color don't bare significance in values hence misslead in importance of the mid-values. This is `coolwarm`, it works. For now. I'm still pocking at it. Remember, humans' VS math' numbers? Here is another run for normalization using `Min-Max Scaling` - the technique scales the data to a fixed range, usually [0, 1]. It's fascinating to me that the legend just picked at exactly that. Would you say is easier to get your head around the ranges that `Quantile` picked up fom the data itself rather than calculting the ranges with pure math? That's what I'm talking about!")
+    st.pyplot(plot_normalized_prices_math(prices_cleaned))
