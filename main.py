@@ -83,16 +83,16 @@ with header:
     st.subheader('Author: Xeniya Shoiko, 2024 (c) All rights reserved')
     # Display media
     image_path = "map_upfold.png"
-    st.image(image_path, caption="Geo Map of NYC with Monthly Rent Prices, $", use_column_width=True)
+    st.image(image_path, caption="Geo Map of NYC with Monthly Rent Prices, $ (Source: Zillow, 2020)", use_column_width=True)
     st.title("Welcome to my Streamlit app")
     long_text = '''
-    In this project, I will investigate the potential influence of proximity to a subway station on rental prices in all five boroughs of New York City, as well as some areas in New Jersey that are easily accessible by the PATH service. These areas are sometimes referred to as the "sixth borough" of New York City or "West West Village."'''
+    In this Data Analysis project, I will investigate the potential influence of proximity to a subway station on residential rental prices in all five boroughs of New York City, as well as some areas in New Jersey that are easily accessible by the PATH service. These areas are sometimes referred to as the "sixth borough" of New York City or "West West Village."'''
     st.markdown(long_text)
 
 with dataset:
     st.header("Datasets")  # the same as st.markdown(' ## heading2')
     st.subheader("Rental Prices Zillow 2020, and MTA stations")
-    long_text = '''I obtained the [Prices Zillow, 2020 dataset](https://www.kaggle.com/datasets/sab30226/zillow-rents-2020) from Kaggle, and Subway info from [MTA Public data](https://new.mta.info/open-data) MTA data is already cleaned (the cleaning process of which deserves a whole other article!) For the header image thanks to: unsplash.com'''
+    long_text = '''I obtained the [Zillow, 2020 dataset of Prices](https://www.kaggle.com/datasets/sab30226/zillow-rents-2020) from Kaggle, and Subway info from [MTA Open data](https://new.mta.info/open-data) MTA data is already cleaned (the cleaning process of which deserves a whole other article!) For the header image thanks to: unsplash.com'''
     st.markdown(long_text)
 
     csv_filepath = './data/zillow.csv'
@@ -201,7 +201,14 @@ with data_clean:
 
     st.subheader("Time to clean up the 'price' column!")
     st.write("""I created a function that takes a price string, removes unwanted characters at the front if it starts with '\$', converts it to a float by replacing commas, and adjusts the value based on the ending. If it detects a plus sign in '$1000+/mo', it adds 0.99 and removes the rest:""")
-    st.code("if price_string.startswith('$'): \n \tprice_string = price_string[1:] \n")
+    st.code("""
+    if price_string.startswith('$'): 
+        price_string = price_string[1:]            
+    if price_string.endswith('+/mo'):
+        price_string = price_string[:-4]
+        price_string = str(float(price_string.replace(',', '')) + .99)
+    ...
+    """)
 
     @st.cache_data
     def clean_price_col(df):
@@ -227,30 +234,24 @@ with data_clean:
 
 
     prices_cleaned = clean_price_col(selected_rent_df)
-    with st.expander("Prices fixed in a new column 'price_fixed'"):
+    with st.expander("Show dataset with a new column 'price_fixed'"):
         st.dataframe(prices_cleaned.head())
 
-    st.markdown("Here is how to find all the prices that end with .99 after decimal point:")
+    st.markdown("Here is how to find all the prices that end with .99 after the decimal point:")
     st.code("price_99 = df[df['price_fixed'].apply(lambda x: str(x).endswith('.99'))]")
-    st.write("Let's see how many of the listings used '+/mo' to evaluate if I need to deal with them. I counted insugnificant 7. Well, I'll leave it in - some interesting results to look for on visualiations later.")
-    with st.expander("Show the dataset 'price_99'"):
+    st.write("Let's see how many of the listings used '+/mo'. I counted insugnificant 7. Well, I'll leave them in - they might be cool to look for on visualiations later.")
+    with st.expander("Show the dataframe 'price_99'"):
         @st.cache_data
         def endswith_99(df):
             return df[df['price_fixed'].apply(lambda x: str(x).endswith('.99'))]
         st.dataframe(endswith_99(prices_cleaned))
 
-    # OUTLIERS
-    # @st.cache_data
-    # def outliers_analyze(df):
-    #     return new_df
-    # Slider
-    # st.select_slider('Choose Rent Price', ['min', 'median', 'max'])
 
 with st_map:
-    st.header("NYC Map visualization of Prices")
-    st.markdown("###### Let's add all those units for rent to the map of NYC!")
+    st.header("NYC Map Visualization of Prices")
+    st.markdown("Let's add all those rent listings to the map of NYC!")
     st.map(prices_cleaned, zoom=10, use_container_width=False)
-    st.markdown("Looks *good*. Or is it?! I need to see what kind of prices are there. Statistics to the resque.")
+    st.markdown("Looks *good*. Or is it?! I need to see what kind of prices are there. Statistics to the rescue.")
 
 with plots:
     @st.cache_data
@@ -364,15 +365,16 @@ with plots:
 
     st.subheader("Analyze Monthly Rent")
     long_text = """
-    This is unreadable, I know, but there are a lot of rows in this dataset. And the data is very scewed. I display it just for a visual sense of data distribution. let's sort and check on the 
-    first 50 rows that have any significance in their count. I want to point out the values that rounded are the ones which accumulate greater counts vs a rundom numer on a numberline, which makes sence for us as humans when talking about prices in base ten system. it's eathier talking about \$2,000/mo rent rather then \$1,987.33/mo.
-    *Fun fact, in the past not knowing about this, I converted and changed the prices of an entire stock of an electronics retail store due to the curency-tied items change in value overnight. It was in minutes that I've found out all about how angry customers were with a price like 341,97 in local curency. Learn from my mistakes so you don't have to!* When working with humans is not the same as hard science or finances. I'll call it: humans' VS math' -numbers for later when I'll select a normalization method."""
+    This is unreadable, I know, but there are a lot of rows in this dataset, and the data is very skewed. I display it just to give a visual sense of the data distribution. Let's sort and check the first 50 rows that have any significance in their count. I want to point out that the rounded values are the ones that accumulate greater counts versus a random number on a number line, which makes sense for us as humans when talking about prices in the base ten system. It's easier to talk about \$2,000/mo rent rather than \$1,987.33/mo.
+
+    *Fun fact: In the past, not knowing about this, I converted and changed the prices of an entire stock of an electronics retail store due to a currency-tied value change overnight. It took minutes for me to find out how angry customers were with a price of 341.97 in local currency. Learn from my mistakes so you don't have to!* Working with humans is not the same as working with hard science or finances. I'll call it: 'Humans vs. Math Numbers' for later when I select a normalization method.
+    """
     st.markdown(long_text)
-    with st.expander("See frequency of Monthly Rent on full dataset"):
+    with st.expander("See the frequency of Monthly Rent on the full dataset"):
         with st.spinner("Retrieved dataset. Plotting..."):
             st.pyplot(bar_plot(prices_cleaned))
 
-    with st.expander("See frequency of Monthly Rent on first 40 highest values (sorted)"):
+    with st.expander("See the frequency of Monthly Rent for the first 40 highest values (sorted)"):
         with st.spinner("Retrieved data set. Plotting..."):
             st.pyplot(bar_plot_sorted(prices_cleaned))
 
@@ -386,6 +388,8 @@ with plots:
     st.write("The use of 1.5 times the interquartile range (IQR) to define the whiskers in a box plot is a common convention in statistical analysis. This method, popularized by John Tukey, helps in identifying potential outliers in the data. The choice of 1.5 times the IQR as a threshold for outliers is somewhat arbitrary but has been found to work well in practice for many datasets. It balances between being too lenient and too strict in identifying outliers.")
     st.markdown("**How to Identify Outliers:**")
     st.code("""
+        q1 = df['price_fixed'].quantile(0.25)
+        q3 = df['price_fixed'].quantile(0.75)
         iqr = q3 - q1
         lower_bound = q1 - 1.5 * iqr
         upper_bound = q3 + 1.5 * iqr
@@ -401,9 +405,9 @@ with plots:
     with st.expander("Show the plot without outliers"):
         with st.spinner("Retrieved the Dataset. Plotting..."):
             st.pyplot(plot_without_outliers(prices_cleaned, df_outliers))
-    st.markdown('The blue width of the boxplot would indicate the range of values between Q1 and Q3 along the x-axis.')
+    st.markdown('*The blue width of the boxplot would indicate the range of values between Q1 and Q3 along the x-axis.*')
 
-    st.write("I'll remove outliers, let's max up the rent at $6,000 and add a number of bedrooms - the metric that tend to influence the price, to see if that makes more sence")
+    st.write("I'll remove outliers, setting the maximum rent at \$6,000, and add the number of bedrooms—a metric that tends to influence the price—to see if that makes more sense.")
     with st.expander("Show the plot without outliers with Num of Bedrooms"):
         with st.spinner("Retrieved the Dataset. Plotting..."):
             st.pyplot(plot_without_outliers_with_bedrooms(prices_cleaned))
@@ -444,14 +448,18 @@ with map:
     if 'nyc_map' not in st.session_state:
         st.session_state['nyc_map'] = generate_geo_map_v1(prices_cleaned)
 
-    st.header("Map v1.0: Scaled markers of montly rent")
-    # Function to handle map generation
+    st.header("Map v1.0: Scaled Markers of Monthly Rent")
+    # Function to handle map v1.0 generation
     with st.spinner('Creating a Map according to your request...'):
         def handle_map_generation():
             st.session_state['nyc_map'] = generate_geo_map_v1(prices_cleaned)
 
         handle_map_generation()
-        st.markdown("""I'm pretty sure there are expensive places for rent in NYC. However, the \$160,000.00/mo and \$140,000.00+/mo* ... I may leave out those extreme values on the long end just do no skew results and non-repeating single two cases makes me suspesious of an error in the data.\n Next up: I scale the size of a mark to a rent value and plot with `OpenStreetMap` and `Folium`. Heads up, it does seam to take ***some extra time***.""")
+        st.markdown("""
+        I'm pretty sure there are expensive places for rent in NYC. However, the \$160,000.00/mo and \$140,000.00+/mo... I may leave out those extreme values on the high end just to avoid skewing the results, and the non-repeating two cases make me suspicious of an error in the data. 
+        
+        Next up: I scale the size of a marker to the rent value and plot it with `OpenStreetMap` and `Folium`. Heads up, this may take ***some extra time*** to load.
+        """)
         st.success('Map v1.0 is ready! Displaying...')
 
     # Displaying the cached map if it exists
@@ -460,8 +468,8 @@ with map:
 
 
 with st_map_mta:
-    st.header("NYC MTA Map visualization")
-    st.subheader("Time to add the MTA system to the map of NYC!")
+    st.header("NYC Map Visualization of MTA Stops")
+    st.markdown("Time to add the MTA system to the map of NYC!")
     # Streamlit basic map of MTA stops
     st.map(mta_df, zoom=10, use_container_width=True)
 
@@ -501,16 +509,16 @@ with map_v2:
         return nyc_map2
 
 
-    st.markdown("""Best thing to do next is to combine both: MTA stations and colorcode the units' locations based on 
-    the range of the column 'price_fixed'""")
-    st.header("Map v2.0: Scaled and color-coded markers of monthly rent with MTA stations")
+    st.markdown("""The best thing to do next is to combine both: MTA stations and color-code the unit locations based on the range of the 'price_fixed' column.""")
+    st.header("Map v2.0: Scaled and color-coded markers of monthly rent with MTA stations in red")
     nyc_map2 = generate_geo_map_v2(prices_cleaned)
     with st.spinner(st.success("The map v2.0 is ready. Displaying...")):
         time.sleep(3)
     folium_static(nyc_map2)
     st.markdown("""
-    \tYou see how everything fell into almost uniform lowest color of a range on the plot? Let's talk about **data normalization**. Look at median calculated above - the mojority of the dataset is around those values, that makes the outlies of the hiest prices skewing the graphics. it's only them are yellow and green (let's see if you can spot them! Hint? Of course - **Millionaires' Row**), and pushes everything else is on a blue - lower price range - side of a colormap-numberline.
-    The way to solve it is **using normalization or scaling**. It involves adjusting the values in the dataset to fit within a specific range, making it easier to compare and visualize the data, especially when there are outliers or a large range of values. This process is essential when dealing with datasets that have varying scales, such as prices ranging from a few hundred dollars to tens of thousands of dollars. 
+    You see how everything falls into almost a uniform lowest color range on the plot? Let's talk about data normalization. Look at the median calculated above—most of the dataset is around those values, which makes the outliers of the highest prices skew the graphics. Only those high prices are yellow and green (let's see if you can spot them! Hint? Of course—**Millionaires' Row**), pushing everything else into the blue—lower price range—side of the colormap-number line.
+
+    The way to solve this is through ***normalization or scaling***. It involves adjusting the values in the dataset to fit within a specific range, making it easier to compare and visualize the data, especially when there are outliers or a large range of values. This process is essential when dealing with datasets that have varying scales, such as prices ranging from a few hundred dollars to tens of thousands of dollars.
     """)
 
 with normalization:
@@ -594,13 +602,18 @@ with normalization:
 
     st.header("Using normalization or scaling")
     st.markdown("### `qcut` function")
-    st.markdown("The `pd.qcut` function in Pandas divides the data into equal-sized bins based on the quantiles. This ensures that each bin has the same number of data points, making it useful for visualizing distributions and for creating evenly distributed groups:")
+    st.markdown("The `pd.qcut()` function in Pandas divides the data into equal-sized bins based on the quantiles. This ensures that each bin has the same number of data points, making it useful for visualizing distributions and for creating evenly distributed groups:")
     st.code("quantiles, bins = pd.qcut(df['price_fixed'], q=4, retbins=True, labels=False, duplicates='drop')")
     st.pyplot(plot_normalized_prices_humans(prices_cleaned))
-    st.markdown("""Yes, color-scheme is very important. The gradient is not enough, some gradients can and will lead to missinterpritation of the data. The `viridis` that is today considered one of the most comprehensive do not work best for this particualar set up. The highlighter yellow is blending with my white backdrop reducing of contrast and abstracting the fact that Downtown is the most expensive in Rent. But I only could notice it when I put them both on a loop. Ask me to post a GIF in here. The `rainbow` nowadays not recommended due the middle of the spectrum visually being higher in intencity of color don't bare significance in values hence misslead in importance of the mid-values. This is `coolwarm` colormap from matplotlib, which is used to color the scatter plot based on quantiles. it works. For now. I'm still pocking at it. "
-                "Remember, humans' VS math' numbers? Here is another run for normalization using `Min-Max Scaling` - the technique scales the data to a fixed range, usually [0, 1]. It's fascinating to me that the legend just picked at exactly that. Would you say is easier to get your head around the ranges that `Quantile` picked up fom the data itself rather than calculting the ranges with pure math? That's what I'm talking about!""")
-    st.markdown("##### This is how to mormalize the prices column of dataFrame using min-max scaling: "
-                "**X' = ( X - Xmin ) / ( Xmax - Xmin ):**")
+    st.markdown("""
+    Yes, the color scheme is crucial. Not all gradients are suitable; some can lead to misinterpretations of the data. The **'viridis'** shades that work well in many contexts may not be ideal for this specific setup. Highlighter yellow, for instance, blends into my white backdrop, reducing contrast and obscuring the fact that Downtown has the highest rent prices. This became apparent when I compared them side by side. I could demonstrate this with a GIF if you'd like.
+
+    Using **'rainbow'** colormap is also discouraged by convention nowadays because the middle of the spectrum appears more intense visually, which can mislead regarding the significance of mid-range values. Currently, I'm using the **'coolwarm'** colormap from Matplotlib to color the scatter plot based on quantiles, and it's effective—so far. I'm still fine-tuning it.
+
+    Remember our discussion about 'humans' VS math' numbers? Here's another example: **normalization using Min-Max Scaling**. This technique scales data to a fixed range, typically [0, 1]. It's intriguing that the legend perfectly reflects this in range values - try to compare the legends on these two graphs. Do you find it easier to understand the quantile ranges picked directly from the data rather than calculating them purely through mathematical formulas? That's what I find fascinating!
+    """)
+    st.markdown("##### This is how to normalize the prices column of dataFrame using min-max scaling "
+                "The formula: **X' = ( X - Xmin ) / ( Xmax - Xmin ):**")
     st.code("""
         df['price_normalized'] = (df['price_fixed'] - df['price_fixed'].min()) / 
             df['price_fixed'].max() - df['price_fixed'].min()""")
@@ -662,15 +675,30 @@ with custom_colored_map:
         colormap.add_to(nyc_map3)
         return nyc_map3
 
-    st.subheader("Map 3.0: Custom colored price bins with MTA stops")
-    st.markdown("""You know how artists blend colors to produce new ones? Well, I used HEX [Color blender](https://colorkit.io/) fun tool where you give it your hex code set up number of steps and look for a resulting blend. I was looking for the blend color to stend out on on outlines of tiles="cartodb positron" of `Folium`. The problem is, I have two sides outliers low and high, to make it obviouse  I assigned them to `blue` and `red`, however everything in between needed to blend and make a visual sence on a gray-ish background against 'highlighter green'. Blue complements orange and when you mix blue and orange together, you get various shades of brown or gray, depending on the proportions of each color used. And to make that blend to stand out on a gray background with enough power of contrast took a few twiks, internet failier, and a new cursed word - `blendomaania`.""")
+    st.subheader("Map 3.0: Custom-colored price bins with MTA stops")
+    st.markdown("""
+    Do you know how artists blend colors to create new ones? Well, I used the HEX [Color blender](https://colorkit.io/) tool, where you input hex codes, set the number of steps, and it generates a blended color. I needed these blended colors to stand out against the 'cartodb positron' tiles in Folium `tiles="cartodb positron"`. The challenge was dealing with colors and outliers on both ends—low and high. To highlight those extremes, I assigned them 'dark blue' and 'dark red', respectively. However, for the values in between, I needed colors that would step down logically from from dark red and dark blue, would blend well and make sense visually against a grayish background of the map and with high-visibility 'highlighter green' of MTA stops.
+
+    Blue and orange are ***complementary colors***, and when you mix them, you get various shades of brown or gray in RGB, depending on the proportions. Achieving a blend that stands out on a gray background with enough contrast required several adjustments, working through intermittent display issues, and a new word in my vocabulary—'blendomania'.
+    """)
     nyc_map3 = generate_custom_col_map_v3(prices_cleaned)
-    st.markdown("#### Here idea is the low treshold in cooler and high treshhold - warmer. So respectfully Outliers low are blue, high - red")
+    st.markdown("#### This map version uses cooler colors for lower thresholds and warmer colors for higher ones, with darker shades highlighting outliers: low in dark blue and high in dark red:")
     with st.spinner(st.success("The map v3.0 is ready. Displaying...")):
         time.sleep(3)
     folium_static(nyc_map3)
 
-    st.markdown("""I do plot the outliers, but I wanted to focus only on the middle most 'popular' in count price range. That's why you see the legend of two. The visual midpoint of 2 colors blended in a tan-brown-ish in RGB (The Queen of Chromoliguistics calls this cocoa or HSL average of orange and blue it might be a shade of green? The Queen of Chromolinguists calls it "between army green and forest green". Sllight change in hue value of orange and it's [mauve](https://meyerweb.com/eric/tools/color-blend/#FF6666:6699CC:1:hex). Color is not a physical entity. It's in the eye of a viewer. Anyway). And what do you know that color tend to stick around of MTA. Play with the map a bit. On the certain zoom-out you can see what areas in that color IS effected by proximity of MTA stops (stops are marked in highliter green). But it's not everywhere, most noticable are Williamsburg, DUMBO and UWS. I know the answer for it being a NewYorker and simply by riding a train a lot here. The main price infiencer after the number of bedrooms and bathrooms is the proximity to Manhattan's Midtown and Downtown, but at a certain point it stops being as matter, because it gets far enough that you woldn't want to spend time to commute as often and maybe go to the City only a fewer times a week or if you can offord it, you move inwords.""")
+    st.markdown("""
+    I do plot outliers but focus primarily on the most popular price range, hence the dual legend. 
+    The visual midpoint of two blended colors results in a tan-brown hue (what the Queen of Chromolinguistics calls cocoa). 
+    Sllight change in hue value of orange and it's 
+    [mauve](https://meyerweb.com/eric/tools/color-blend/#FF6666:6699CC:1:hex). Color is not a physical entity. 
+    It's in the eye of a viewer. After refining the blend and plotting it, I noticed this midpoint color tends to cluster around MTA stops (marked in highlighter green).  
+    Play with the map a bit: at a certain zoom out you can see which areas in this color are influenced by proximity to MTA stops.
+    It's not everywhere, particularly noticeable in Williamsburg, DUMBO and UWS. 
+    As a frequent New York commuter, I understand how proximity to Midtown and Downtown Manhattan significantly impacts prices in those "close-enough" areas. 
+    However, beyond a certain distance, it stops being as matter, because it gets far enough that you woldn't want to commute as often and maybe 
+    if you can afford it, you move inwards to save time.
+    """)
     st.subheader("Visual Representation")
     st.markdown("#### I remove extreme outliers to focus on the bulk of the data")
     st.markdown("To exclude the bottom 5% and top 5% of data points, focusing on the central 90%:")
@@ -681,11 +709,10 @@ with custom_colored_map:
     st.markdown("""- **Quantiles 0.05 and 0.95:** Captures central 90% without extreme values, potentially more compact and focused on the majority of data.\n
 - **IQR with 1.5 Multiplier:** Captures central data but allows for a wider range, including a larger portion of data as non-outliers.""")
     st.markdown("*In practice*, the choice between these methods depends on the specific data characteristics and the analysis goals. Quantiles offer a more precise exclusion of outliers, while the IQR method provides a broader inclusion of data points.")
-
-    st.subheader("Fan observation")
-    st.markdown("""Interesting, that high outliers nested at one spot far away from Manhattan - deep in Queens, look for a blob of red and orange around "Terrace Heights". To test my theory of higher square footage I added to my info Popup a number of bedrooms denoted "Bdr", bathrooms - "Bthr", and "Area" of data represents ft2 (but as not a required field on Zillow, area rarely shows up). Playing with popups confirmed the theory that the prices are higher because that location rents for bigger places and proximity to "Grand Central Terminal" in Midtown nor Subway is not a price influencer.""")
-    st.header("Conclusion")
+    st.header("Conclusions")
     st.markdown("Quantile binning is a powerful technique for normalizing data, especially when dealing with skewed distributions. By dividing the data into equal-sized bins, it ensures a balanced representation, making it useful for both visualization and analysis.")
 
-with above_the_fold_img:
-    folium_static(nyc_map3)
+    st.subheader("Fan observation")
+    st.markdown("""
+    Interesting, that high outliers nested at one spot far away from Manhattan - deep in Queens, look for a blob of red and orange around "Terrace Heights". To test my theory of higher square footage I added to my info Popup a number of bedrooms denoted "Bdr", bathrooms - "Bthr", and "Area" of data represents ft2 (but as not a required field on Zillow, area rarely shows up). Playing with popups confirmed the theory that the prices are higher because that location rents for bigger places and proximity to "Grand Central Terminal" in Midtown nor Subway is not a price influencer.
+    """)
