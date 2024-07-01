@@ -682,37 +682,31 @@ with custom_colored_map:
     Blue and orange are ***complementary colors***, and when you mix them, you get various shades of brown or gray in RGB, depending on the proportions. Achieving a blend that stands out on a gray background with enough contrast required several adjustments, working through intermittent display issues, and a new word in my vocabulary—'blendomania'.
     """)
     nyc_map3 = generate_custom_col_map_v3(prices_cleaned)
-    st.markdown("#### This map version uses cooler colors for lower thresholds and warmer colors for higher ones, with darker shades highlighting outliers: low in dark blue and high in dark red:")
+
+    st.markdown("#### I remove extreme outliers from the legend and focus on the bulk of the data")
+    st.markdown("This is how I exclude the bottom 5% and top 5% of data points, focusing on the central 90%:")
+    st.code("""
+    outlier_threshold_high = df['price_fixed'].quantile(0.95) # 'red'
+    outlier_threshold_low = df['price_fixed'].quantile(0.05) # 'blue'
+    """)
     with st.spinner(st.success("The map v3.0 is ready. Displaying...")):
         time.sleep(3)
     folium_static(nyc_map3)
+    st.markdown("""*This map version uses cooler colors for lower thresholds and warmer colors for higher ones, with darker shades highlighting outliers: low in <span style="color: blue;">**darker blue**</span> and high in <span style="color: #C1291D;"> **darker red** </span>*""", unsafe_allow_html=True)
 
     st.markdown("""
-    I do plot outliers but focus primarily on the most popular price range, hence the dual legend. 
-    The visual midpoint of two blended colors results in a tan-brown hue (what the Queen of Chromolinguistics calls cocoa). 
-    Sllight change in hue value of orange and it's 
-    [mauve](https://meyerweb.com/eric/tools/color-blend/#FF6666:6699CC:1:hex). Color is not a physical entity. 
-    It's in the eye of a viewer. After refining the blend and plotting it, I noticed this midpoint color tends to cluster around MTA stops (marked in highlighter green).  
-    Play with the map a bit: at a certain zoom out you can see which areas in this color are influenced by proximity to MTA stops.
-    It's not everywhere, particularly noticeable in Williamsburg, DUMBO and UWS. 
-    As a frequent New York commuter, I understand how proximity to Midtown and Downtown Manhattan significantly impacts prices in those "close-enough" areas. 
-    However, beyond a certain distance, it stops being as matter, because it gets far enough that you woldn't want to commute as often and maybe 
-    if you can afford it, you move inwards to save time.
+    I do plot outliers but focus primarily on the most popular price range, hence the dual legend. The visual midpoint of two blended colors results in a tan-brown hue (what the Queen of Chromolinguistics calls cocoa). A slight change in the hue value of orange turns it into [mauve](https://meyerweb.com/eric/tools/color-blend/#FF6666:6699CC:1:hex). Color is not a physical entity; it exists in the eye of the viewer.
+    
+    After refining the blend and plotting it, I noticed this midpoint color tends to cluster around MTA stops (marked in highlighter green). Play with the map a bit: at a certain zoom-out, you can see which areas in this color are influenced by proximity to MTA stops. It's not everywhere, but it is particularly noticeable in Williamsburg, DUMBO, and UWS. As a frequent New York commuter, I understand how proximity to Midtown and Downtown Manhattan significantly impacts prices in those "close-enough" areas. However, beyond a certain distance, it stops being as significant because it gets far enough that you wouldn't want to commute as often. If you can afford it, you move inwards to save time.
     """)
-    st.subheader("Visual Representation")
-    st.markdown("#### I remove extreme outliers to focus on the bulk of the data")
-    st.markdown("To exclude the bottom 5% and top 5% of data points, focusing on the central 90%:")
-    st.code("""
-    outlier_threshold_high = df['price_fixed'].quantile(0.95)
-    outlier_threshold_low = df['price_fixed'].quantile(0.05)
-    """)
+    st.header("Conclusions")
     st.markdown("""- **Quantiles 0.05 and 0.95:** Captures central 90% without extreme values, potentially more compact and focused on the majority of data.\n
 - **IQR with 1.5 Multiplier:** Captures central data but allows for a wider range, including a larger portion of data as non-outliers.""")
+    st.markdown("*Quantile binning* is a powerful technique for normalizing data, especially when dealing with skewed distributions. By dividing the data into equal-sized bins, it ensures a balanced representation, making it useful for both visualization and analysis.")
     st.markdown("*In practice*, the choice between these methods depends on the specific data characteristics and the analysis goals. Quantiles offer a more precise exclusion of outliers, while the IQR method provides a broader inclusion of data points.")
-    st.header("Conclusions")
-    st.markdown("Quantile binning is a powerful technique for normalizing data, especially when dealing with skewed distributions. By dividing the data into equal-sized bins, it ensures a balanced representation, making it useful for both visualization and analysis.")
 
     st.subheader("Fan observation")
+    st.markdown("#### Surprising High-Rent Area in Queens, NY")
     st.markdown("""
-    Interesting, that high outliers nested at one spot far away from Manhattan - deep in Queens, look for a blob of red and orange around "Terrace Heights". To test my theory of higher square footage I added to my info Popup a number of bedrooms denoted "Bdr", bathrooms - "Bthr", and "Area" of data represents ft2 (but as not a required field on Zillow, area rarely shows up). Playing with popups confirmed the theory that the prices are higher because that location rents for bigger places and proximity to "Grand Central Terminal" in Midtown nor Subway is not a price influencer.
+    Interesting location: high outliers are clustered in one spot far away from Manhattan, deep in Queens. Look for a blob of red and orange around "Terrace Heights." To test my theory about higher square footage, I added the number of bedrooms ("Bdr"), bathrooms ("Bthr"), and "Area" (in ft²) to the info popups on hover. Note that area data is often missing on Zillow as it's not a required field. Playing with the popups confirmed the theory: prices are higher in that location because it rents out larger places, confirming that proximity to subway stops is not a significant price influencer there.
     """)
