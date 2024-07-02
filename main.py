@@ -66,9 +66,10 @@ map_v2 = st.container()  # the Folium map for Prices v2.0
 normalization = st.container()  # The matplotlib coolwarm maps
 custom_colored_map = st.container()  # My colors for the prices+MTA map v3.0
 
+
 # Load data
 @st.cache_data
-def get_csv_data(filename):
+def get_csv_data(csv_filepath):
     try:
         new_df = pd.read_csv(csv_filepath)
     except FileNotFoundError:
@@ -81,8 +82,8 @@ def get_csv_data(filename):
 
 with header:
     st.subheader('Author: Xeniya Shoiko, 2024 (c) All rights reserved')
-    # Display media
-    image_path = "map_upfold.png"
+    # Display 'upfold' media
+    image_path = "map_norm_quantile_binning.png"
     st.image(image_path, caption="Geo Map of NYC with Monthly Rent Prices, $ (Source: Zillow, 2020)", use_column_width=True)
     st.title("Welcome to my Streamlit app")
     long_text = '''
@@ -92,18 +93,21 @@ with header:
 with dataset:
     st.header("Datasets")  # the same as st.markdown(' ## heading2')
     st.subheader("Rental Prices Zillow 2020, and MTA stations")
-    long_text = '''I obtained the [Zillow, 2020 dataset of Prices](https://www.kaggle.com/datasets/sab30226/zillow-rents-2020) from Kaggle, and Subway info from [MTA Open data](https://new.mta.info/open-data) MTA data is already cleaned (the cleaning process of which deserves a whole other article!) For the header image thanks to: unsplash.com'''
+    long_text = '''I obtained a [Zillow, 2020 dataset of Prices](https://www.kaggle.com/datasets/sab30226/zillow-rents-2020) from Kaggle, and Subway info from [MTA Open data](https://new.mta.info/open-data) MTA data is already cleaned (the cleaning process of which deserves a whole other article!) For the header image thanks to: unsplash.com'''
     st.markdown(long_text)
 
+    # start = time.time()
     csv_filepath = './data/zillow.csv'
     rent_df = get_csv_data(csv_filepath)
+    # st.info(f"⏱ data loaded in: {time.time() - start:.2f}sec")  # .01s
 
     csv_filepath = './data/grouped_df.csv'
     mta_df = get_csv_data(csv_filepath)
 
     # Display Prices dataset
     with st.expander("Zillow 2020 dataset 5 first rows"):
-        st.dataframe(rent_df.head())
+        # st.dataframe(rent_df.head())  # works; dynamic is removed due to streamlit.io memory issue
+        st.dataframe(get_csv_data('./data/zillow_5rows.csv'))  # reduced file Sz
     # Display MTA dataset
     with st.expander("MTA stations data (Cleaned) 5 first rows"):
         st.dataframe(mta_df.head())  # full width, for narrower view:  st.dataframe(mta_df.head())
@@ -127,9 +131,14 @@ with data_clean:
 
 
     # Display the unique 'homeType' -s
+    # start_unique_home_types = time.time()
     unique_home_types = get_unique_by_col(rent_df, 'homeType')
     st.write("- **Unique by 'homeType':** ", str(unique_home_types), ";")
-    st.write("- **Unique by 'state':**" , str(get_unique_by_col(rent_df, 'state')), "*I'll keep NY, and NJ;*")
+    # st.info(f"⏱ data loaded in: {time.time() - start_unique_home_types:.2f}sec")  # .03s OK
+
+    # start_unique_by_col = time.time()
+    st.write("- **Unique by 'state':**", str(get_unique_by_col(rent_df, 'state')), "*I'll keep NY, and NJ;*")
+    # st.info(f"⏱ data loaded in: {time.time() - start_unique_by_col:.2f}sec")  # .02s OK
 
     st.write("""
     I gradually apply each step, passing the resulting DataFrame from one function to another as part of a cleaning process. I **do not** manipulate the original dataset.
@@ -143,14 +152,16 @@ with data_clean:
         df2 = df.dropna(subset=['homeStatus'])
         return df2
 
-
+    # tested performance: no need to remove dynamic file ref
+    # start = time.time()
     nona_unique_home_st = dropna_unique_home_stat(rent_df)
     unique_home_status = get_unique_by_col(nona_unique_home_st, 'homeStatus')
     st.write("-  **Unique 'homeStatus':** ", str(unique_home_status), "\nI'll keep 'FOR_RENT' only from this step.")
-
+    # st.info(f"⏱ data loaded in: {time.time() - start:.2f}sec")  # .04s OK
 
     @st.cache_data
     def select_cols_rows(df):
+        # works; dynamic usage removed this file preprocessed before loading it into the Streamlit app, due to the cloud RAM constrains
         new_df = df[
             ['yearBuilt', 'homeStatus', 'longitude', 'latitude', 'price', 'city', 'state', 'postal_code', 'bedrooms',
              'bathrooms', 'area']]
@@ -164,11 +175,14 @@ with data_clean:
     st.markdown(
         "Specifically, `df.drop()` anything that is not NY or NJ in 'state' column and that is not FOR_RENT in 'homeStatus' column:")
     st.code("""
-    new_df = new_df.drop(new_df[~new_df['state'].isin(['NY', 'NJ'])].index) 
-    new_df = new_df.drop(new_df[~new_df['homeStatus'].isin(['FOR_RENT'])].index)
+        df_NYNJ = df.drop(df[~df['state'].isin(['NY', 'NJ'])].index)
+        df_rents = df_NYNJ.drop(df_NYNJ[~df_NYNJ['homeStatus'].isin(['FOR_RENT'])].index)
+        new_df = df_rents[['yearBuilt', 'homeStatus', 'longitude', 'latitude', 'price', 'state', 'bedrooms', 'bathrooms', 'area']]
     """)
-    selected_rent_df = select_cols_rows(nona_unique_home_st)
-    with st.expander("Show how the dataset looks now"):
+
+    # selected_rent_df = select_cols_rows(nona_unique_home_st)  # works; removed dynamic file processing: remove old file ref
+    selected_rent_df = get_csv_data('./data/zillow_dropped_col_rows.csv')
+    with st.expander("Show how the dataset looks now (5 rows)"):
         st.dataframe(selected_rent_df.head())
 
     # yearBuilt plot
@@ -180,24 +194,30 @@ with data_clean:
         """
         unique_year_built_values = df['yearBuilt'].unique()
         num_unique_values = len(unique_year_built_values)
-        st.write(f"There are {num_unique_values} unique values in the 'yearBuilt' column.")
+        st.info(f"There are {num_unique_values} unique values in the 'yearBuilt' column.")
 
-        # Create bins of 12
+        # Create bins of 12: 1800y - 2021y
         bins = np.append(np.arange(1800, 2021, 12), 2021)
 
         # Plot the bins
         fig, ax = plt.subplots()
         ax.hist(df['yearBuilt'], bins=bins)
-        ax.set_xlabel('Year Built')
+        ax.set_xlabel('Year Built bins')
         ax.set_ylabel('Number of Units')
         ax.set_title('Distribution of Houses by Year Built')
         return fig
 
+    @st.cache_data
+    def remove_col(df, col_name):
+        df = df.drop(col_name, axis=1)
+        return df
 
     st.write("""If you're as curious as I am about the 'yearBuilt' of NYC estates, I asked how many unique values are in the 'yearBuilt' column. Next, I put the unique values into bins of 12 and plotted the bins""")
     with st.expander("Generate Plot on 'yearBuilt'"):
         fig = plot_year_built(selected_rent_df)
         st.pyplot(fig)
+
+    selected_rent_cleanup = remove_col(selected_rent_df, 'yearBuilt')
 
     st.subheader("Time to clean up the 'price' column!")
     st.write("""I created a function that takes a price string, removes unwanted characters at the front if it starts with '\$', converts it to a float by replacing commas, and adjusts the value based on the ending. If it detects a plus sign in '$1000+/mo', it adds 0.99 and removes the rest:""")
@@ -230,11 +250,12 @@ with data_clean:
             return float(price_string.replace(',', ''))
 
         df['price_fixed'] = df['price'].apply(fix_price)  # 'price_fixed' col now is float64
+        df = df.drop('price', axis=1)  # remove old 'price' col to speedup
         return df
 
 
-    prices_cleaned = clean_price_col(selected_rent_df)
-    with st.expander("Show dataset with a new column 'price_fixed'"):
+    prices_cleaned = clean_price_col(selected_rent_cleanup)
+    with st.expander("Show the dataset with a new column 'price_fixed' (5 rows)"):
         st.dataframe(prices_cleaned.head())
 
     st.markdown("Here is how to find all the prices that end with .99 after the decimal point:")
@@ -257,6 +278,7 @@ with plots:
     @st.cache_data
     def bar_plot(df):
         """
+        # works; dynamic usage removed due to RAM. cloud memory restrains of Streamlit.io hosting
         Get the frequency of each price then Sort the price counts by price, plot, make a plot a screenwide
         """
         price_fixed = df['price_fixed'].astype(int)
@@ -271,7 +293,10 @@ with plots:
 
     @st.cache_data
     def bar_plot_sorted(df):
-        # plot a frequency of the price, make a plot figzie 30, sort by value in a price_fixed
+        """
+        # works; dynamic usage removed due to RAM. cloud memory restrains of Streamlit.io hosting
+        Plot a frequency of the price, make a plot figzie 30 wide, sort by value in a price_fixed
+        """
         fig, ax = plt.subplots(figsize=(30, 2))
         df['price_fixed'].value_counts().head(40).plot(kind='bar', ax=ax)
         ax.set_title('Frequency of Price')
@@ -370,13 +395,21 @@ with plots:
     *Fun fact: In the past, not knowing about this, I converted and changed the prices of an entire stock of an electronics retail store due to a currency-tied value change overnight. It took minutes for me to find out how angry customers were with a price of 341.97 in local currency. Learn from my mistakes so you don't have to!* Working with humans is not the same as working with hard science or finances. I'll call it: 'Humans vs. Math Numbers' for later when I select a normalization method.
     """
     st.markdown(long_text)
-    with st.expander("See the frequency of Monthly Rent on the full dataset"):
-        with st.spinner("Retrieved dataset. Plotting..."):
-            st.pyplot(bar_plot(prices_cleaned))
+    # start = time.time()
+    with st.expander("See the frequency of Monthly Rent on the first 500 rows of dataset"):
+        # with st.spinner("Retrieved dataset. Plotting..."):
+            # st.pyplot(bar_plot(prices_cleaned)) # works; dynamic usage removed due to RAM issue.
+        image_path = "price_counts_500.png"
+        st.image(image_path, caption="The frequency of Monthly Rent on the first 500 of the dataset",
+                 use_column_width=True)
+        # st.info(f"⏱ pic loaded in: {time.time() - start:.2f} sec")  # 0.25-0.39sec for .png VS bar_plot() -> 12.44sec
 
-    with st.expander("See the frequency of Monthly Rent for the first 40 highest values (sorted)"):
-        with st.spinner("Retrieved data set. Plotting..."):
-            st.pyplot(bar_plot_sorted(prices_cleaned))
+    with st.expander("See the frequency of Monthly Rent for the first 40 highest values"):
+        # with st.spinner("Retrieved data set. Plotting..."):
+            # st.pyplot(bar_plot_sorted(prices_cleaned)) # works; dynamic usage removed due to RAM issue.
+        image_path_sorted = "price_counts_40.png"
+        st.image(image_path_sorted, caption="The frequency of Monthly Rent on the first 40 highest prices",
+                 use_column_width=True)
 
     st.subheader("*Quantiles*")
     st.markdown("*Quantiles are points in data that divide it into equal-sized intervals. For instance, if you divide data into 4 quantiles (quartiles), each quantile will contain 25% of the data.*")
@@ -397,20 +430,32 @@ with plots:
     """)
     price_range, price_median, price_mean, df_outliers = identify_outliers(prices_cleaned)
 
+    # start = time.time()
     st.subheader("Let's inspect the visuals on how obvious outliers are")
     with st.expander("Show the plot with outliers"):
-        with st.spinner("Retrieved the dataset. Plotting..."):
-            st.pyplot(plot_with_outliers(prices_cleaned))
+        # with st.spinner("Retrieved the dataset. Plotting..."):
+            # st.pyplot(plot_with_outliers(prices_cleaned))
+        image_path = "price_distribution_with_outliers.png"
+        st.image(image_path, caption="The plot with outliers", use_column_width=True)
+        # st.info(f"⏱ plot loaded in: {time.time() - start:.2}sec")  #plot+spinner: .47s, plot,No spinner: .5s, png,no spin .0031s
 
+    # start = time.time()
     with st.expander("Show the plot without outliers"):
-        with st.spinner("Retrieved the Dataset. Plotting..."):
-            st.pyplot(plot_without_outliers(prices_cleaned, df_outliers))
+        # with st.spinner("Retrieved the Dataset. Plotting..."):
+            # st.pyplot(plot_without_outliers(prices_cleaned, df_outliers))
+        image_path = "price_distribution_without_outliers.png"
+        st.image(image_path, caption="The plot without outliers", use_column_width=True)
+        # st.info(f"⏱ plot loaded in: {time.time() - start:.2}sec")  #plot+spinner: 0.32s, plon,No spinner: 0.31s-0.41s, png,no spin .0021s
     st.markdown('*The blue width of the boxplot would indicate the range of values between Q1 and Q3 along the x-axis.*')
 
     st.write("I'll remove outliers, setting the maximum rent at \$6,000, and add the number of bedrooms—a metric that tends to influence the price—to see if that makes more sense.")
+    # start = time.time()
     with st.expander("Show the plot without outliers with Num of Bedrooms"):
-        with st.spinner("Retrieved the Dataset. Plotting..."):
-            st.pyplot(plot_without_outliers_with_bedrooms(prices_cleaned))
+        # with st.spinner("Retrieved the Dataset. Plotting..."):
+            # st.pyplot(plot_without_outliers_with_bedrooms(prices_cleaned))  # works; removing dynamic plot due to poor performance
+        image_path = "price_bedrooms.png"
+        st.image(image_path, caption="The plot without outliers with Num of Bedrooms", use_column_width=True)
+        # st.info(f"⏱ plot loaded in: {time.time() - start:.2f} sec") # plot+spinner: .55s, plot,NO spinner: .76s-1.17s, png+spin->.0s, png,NO spinner ->.0s
 
 with map:
     @st.cache_data
@@ -524,7 +569,10 @@ with map_v2:
 with normalization:
     @st.cache_data
     def plot_normalized_prices_humans(df):
-        # Calculate quantiles for the 'price_fixed' column
+        """
+        Dynamic, tested, works; usage removed due to online Cloud RAM usage on Streamlit
+        Calculate quantiles for the 'price_fixed' column
+        """
         quantiles, bins = pd.qcut(df['price_fixed'], q=4, retbins=True, labels=False, duplicates='drop')
 
         # Add the quantiles as a new column in the DataFrame
@@ -559,6 +607,7 @@ with normalization:
     @st.cache_data
     def plot_normalized_prices_math(df):
         """
+        Dynamic, tested, works; usage removed due to online Cloud RAM usage on Streamlit
         min-max scaling normalization. Filters out and shows all, creates df['quantile'] -> for ex.: Q4 2800 - 100000
         """
         # Normalize the price_fixed column using min-max scaling
@@ -591,7 +640,7 @@ with normalization:
             for i in range(len(bins) - 1)]
         cbar.set_ticks([0, 1, 2, 3])
         cbar.set_ticklabels(quantile_labels)
-        cbar.set_label('Price Ranges')
+        cbar.set_label('Price Ranges, $')
 
         # Add labels and title
         ax.set_xlabel('Longitude')
@@ -604,7 +653,11 @@ with normalization:
     st.markdown("### `qcut` function")
     st.markdown("The `pd.qcut()` function in Pandas divides the data into equal-sized bins based on the quantiles. This ensures that each bin has the same number of data points, making it useful for visualizing distributions and for creating evenly distributed groups:")
     st.code("quantiles, bins = pd.qcut(df['price_fixed'], q=4, retbins=True, labels=False, duplicates='drop')")
-    st.pyplot(plot_normalized_prices_humans(prices_cleaned))
+    # start = time.time()
+    # st.pyplot(plot_normalized_prices_humans(prices_cleaned))  # works; removed due to Streamlit.io RAM
+    image_path = "map_norm_quantile_binning.png"
+    st.image(image_path, caption="Geo map of NYC with price normalized by Quantile Binning", use_column_width=True)
+    # st.info(f"⏱ plot loaded in: {time.time() - start:.2f}sec")  # 1.17s plot; .01s png
     st.markdown("""
     Yes, the color scheme is crucial. Not all gradients are suitable; some can lead to misinterpretations of the data. The **'viridis'** shades that work well in many contexts may not be ideal for this specific setup. Highlighter yellow, for instance, blends into my white backdrop, reducing contrast and obscuring the fact that Downtown has the highest rent prices. This became apparent when I compared them side by side. I could demonstrate this with a GIF if you'd like.
 
@@ -617,7 +670,11 @@ with normalization:
     st.code("""
         df['price_normalized'] = (df['price_fixed'] - df['price_fixed'].min()) / 
             df['price_fixed'].max() - df['price_fixed'].min()""")
-    st.pyplot(plot_normalized_prices_math(prices_cleaned))
+    # start = time.time()
+    # st.pyplot(plot_normalized_prices_math(prices_cleaned))  # works; removed due to Streamlit.io RAM
+    image_path = "map_norm_min_max_scaling.png"
+    st.image(image_path, caption="Geo Map of NYC with Price Normalized by Min-Max Scaling", use_column_width=True)
+    # st.info(f"⏱ plot loaded in: {time.time() - start:.2}sec")  # 1.2-1.3s Plot; .0048s .png
 
 with custom_colored_map:
     @st.cache_data
