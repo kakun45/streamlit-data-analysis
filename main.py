@@ -389,22 +389,22 @@ with plots:
         return fig
 
     st.subheader("Analyze Monthly Rent")
+    # start = time.time()
+    with st.expander("Show the frequency of Monthly Rent on the first ordered 500 rows of the dataset"):
+        # with st.spinner("Retrieved dataset. Plotting..."):
+            # st.pyplot(bar_plot(prices_cleaned)) # works; dynamic usage removed due to RAM issue.
+        image_path = "price_counts_500.png"
+        st.image(image_path, caption="The frequency of Monthly Rent on the first 500 of the dataset; sorted by 'price_fixed'",
+                 use_column_width=True)
+        # st.info(f"⏱ pic loaded in: {time.time() - start:.2f} sec")  # 0.25-0.39sec for .png VS bar_plot() -> 12.44sec
     long_text = """
-    This is unreadable, I know, but there are a lot of rows in this dataset, and the data is very skewed. I display it just to give a visual sense of the data distribution. Let's sort and check the first 50 rows that have any significance in their count. I want to point out that the rounded values are the ones that accumulate greater counts versus a random number on a number line, which makes sense for us as humans when talking about prices in the base ten system. It's easier to talk about \$2,000/mo rent rather than \$1,987.33/mo.
+    This is unreadable, I know, but there are a lot of rows in this dataset, and the data is very skewed. I display it just to give a visual hint - almost "a feel" for sense of the data distribution. Let's sort and check the first 50 rows that have any significance in their count. I want to point out that the rounded values are the ones that accumulate greater counts versus a random number on a number line, which makes sense for us as humans when talking about prices in the base ten system. It's easier to talk about \$2,000/mo rent rather than \$1,987.33/mo.
 
     *Fun fact: In the past, not knowing about this, I converted and changed the prices of an entire stock of an electronics retail store due to a currency-tied value change overnight. It took minutes for me to find out how angry customers were with a price of 341.97 in local currency. Learn from my mistakes so you don't have to!* Working with humans is not the same as working with hard science or finances. I'll call it: 'Humans vs. Math Numbers' for later when I select a normalization method.
     """
     st.markdown(long_text)
-    # start = time.time()
-    with st.expander("See the frequency of Monthly Rent on the first 500 rows of dataset"):
-        # with st.spinner("Retrieved dataset. Plotting..."):
-            # st.pyplot(bar_plot(prices_cleaned)) # works; dynamic usage removed due to RAM issue.
-        image_path = "price_counts_500.png"
-        st.image(image_path, caption="The frequency of Monthly Rent on the first 500 of the dataset",
-                 use_column_width=True)
-        # st.info(f"⏱ pic loaded in: {time.time() - start:.2f} sec")  # 0.25-0.39sec for .png VS bar_plot() -> 12.44sec
 
-    with st.expander("See the frequency of Monthly Rent for the first 40 highest values"):
+    with st.expander("Show the frequency of Monthly Rent for the first 40 highest values"):
         # with st.spinner("Retrieved data set. Plotting..."):
             # st.pyplot(bar_plot_sorted(prices_cleaned)) # works; dynamic usage removed due to RAM issue.
         image_path_sorted = "price_counts_40.png"
