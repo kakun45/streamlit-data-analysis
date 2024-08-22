@@ -669,7 +669,7 @@ with normalization:
                 "The formula: **X' = ( X - Xmin ) / ( Xmax - Xmin ):**")
     st.code("""
         df['price_normalized'] = (df['price_fixed'] - df['price_fixed'].min()) / 
-            df['price_fixed'].max() - df['price_fixed'].min()""")
+            (df['price_fixed'].max() - df['price_fixed'].min())""") 
     # start = time.time()
     # st.pyplot(plot_normalized_prices_math(prices_cleaned))  # works; removed due to Streamlit.io RAM
     image_path = "map_norm_min_max_scaling.png"
