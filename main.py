@@ -85,7 +85,7 @@ with header:
     # Display 'upfold' media
     image_path = "map_norm_quantile_binning.png"
     st.image(image_path, caption="Geo Map of NYC with Monthly Rent Prices, $ (Source: Zillow, 2020)", use_column_width=True)
-    st.title("Welcome to my Streamlit app")
+    st.title("Exploratory Analysis: Subway Access Impact on Housing Costs with Streamlit")
     long_text = '''
     In this Data Analysis project, I will investigate the potential influence of proximity to a subway station on residential rental prices in all five boroughs of New York City, as well as some areas in New Jersey that are easily accessible by the PATH service. These areas are sometimes referred to as the "sixth borough" of New York City or "West West Village."'''
     st.markdown(long_text)
